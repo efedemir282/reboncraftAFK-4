@@ -15,7 +15,7 @@ app.listen(PORT, '0.0.0.0', () => {
 
 // --- 2. GLOBAL ÇÖKME KORUMALARI ---
 process.on('uncaughtException', (err) => {
-  if (err.name === 'PartialReadError' || err.message?.includes('PartialReadError')) return;
+  if (err.name === 'PartialReadError' || err.message?.includes('PartialReadError') || err.message?.includes('FastDecoderException')) return;
   console.log('[Sistem Uyarısı] Hata:', err.message);
 });
 
@@ -61,7 +61,15 @@ function botuBaslat() {
       port: 25565,
       username: BOT_USERNAME,
       version: '1.21.6',
-      viewDistance: 'tiny',
+      viewDistance: 'far', // FastDecoder paket hatasını önlemek için far ayarlandı
+      clientSettings: {
+        locale: 'tr_TR',
+        viewDistance: 'far',
+        chatFlags: 0,
+        chatColors: true,
+        skinParts: 127,
+        mainHand: 1
+      },
       checkTimeoutInterval: 120 * 1000,
       physicsEnabled: true,
       hideErrors: true
@@ -113,13 +121,12 @@ function botuBaslat() {
     console.log('>> [MİNYON BESLEME] Minyon besleme işlemi başlatıldı...');
 
     try {
-      // Menü açıldığında 27. Slottaki Altın Elma'ya Tıklama
       bot.once('windowOpen', (window) => {
         console.log(`>> [MİNYON MENÜSÜ] Menü açıldı: ${window.title || 'CEHENNEM MİNYON PANELİ'}`);
         
         safeTimeout(() => {
           try {
-            const TARGET_SLOT = 27; // Altın Elma'nın durduğu 27. slot
+            const TARGET_SLOT = 27; // Altın Elma
             bot.clickWindow(TARGET_SLOT, 0, 0);
             console.log(`>> [BESLEME BAŞARILI] 27. slottaki Altın Elma'ya tıklandı!`);
           } catch (e) {
@@ -128,7 +135,6 @@ function botuBaslat() {
         }, 1200);
       });
 
-      // Minyon Varlığını Bul ve Odaklan
       const minyon = bot.nearestEntity(e => {
         if (!e) return false;
         const name = (e.customName || e.name || '').toLowerCase();
@@ -196,7 +202,6 @@ function botuBaslat() {
     const icerik = rawMessage.toLowerCase();
     console.log(`>> [YETKİLİ KOMUT] ${gonderenTemiz}: ${rawMessage}`);
 
-    // 1. GENEL CHAT'E YAZI YAZDIRMA (!mesaj)
     if (rawMessage.startsWith('!')) {
       const gonderilecekMesaj = rawMessage.substring(1).trim();
       if (gonderilecekMesaj.length > 0) {
@@ -204,7 +209,6 @@ function botuBaslat() {
         console.log(`>> [GENEL CHAT] YAZILDI: ${gonderilecekMesaj}`);
       }
     }
-    // 2. TPA KOMUTLARI (/msg Kumarbaz_Sabri tpa)
     else if (icerik === 'tpa' || icerik === '/tpa') {
       komutGonder(`/tpa ${gonderenTemiz}`);
       console.log(`>> [TPA] /tpa ${gonderenTemiz} atıldı.`);
@@ -213,16 +217,13 @@ function botuBaslat() {
       komutGonder(`/tpa ${hedefKullanici}`);
       console.log(`>> [TPA] /tpa ${hedefKullanici} atıldı.`);
     }
-    // 3. ENVANTER BOŞALTMA (/msg Kumarbaz_Sabri bosalt)
     else if (icerik === 'bosalt' || icerik === 'boşalt') {
       esyalariBosalt(gonderenTemiz);
     }
-    // 4. HOME ÇEKME (/msg Kumarbaz_Sabri /home)
     else if (icerik === 'home' || icerik === '/home') {
       komutGonder('/home');
       console.log(`>> [HOME] Bot /home çekti.`);
     }
-    // 5. MANUEL BESLEME TETİKLEME
     else if (icerik === 'besle') {
       minyonBesle();
     }
@@ -239,12 +240,10 @@ function botuBaslat() {
 
     const mesajLower = mesaj.toLowerCase();
 
-    // Otomatik TPA Kabul
     if (mesajLower.includes('size ışınlanmak istiyor') || (mesajLower.includes('tpa') && mesajLower.includes('kabul'))) {
       safeTimeout(() => komutGonder('/tpaccept'), 1000);
     }
 
-    // Yetkili Chat Çözümleme
     AUTHORIZED_USERS.forEach(user => {
       if (mesajLower.includes(user)) {
         const exclamationIndex = mesaj.indexOf('!');
@@ -263,7 +262,6 @@ function botuBaslat() {
       }
     });
 
-    // Lobiye Düşme Kontrolü
     if (
       mesaj.includes('Lobiye aktarıldınız') ||
       mesaj.includes('Sunucu yeniden başlatılıyor')
@@ -281,27 +279,23 @@ function botuBaslat() {
 
     console.log(`>> ${BOT_USERNAME} oyuna bağlandı.`);
 
-    // 1. Şifre Gir
     safeTimeout(() => {
       komutGonder(`/login ${BOT_PASSWORD}`);
       console.log(`>> [1/3] /login ${BOT_PASSWORD} gönderildi.`);
     }, 4000);
 
-    // 2. Skyblock Sunucusuna Geç
     safeTimeout(() => {
       komutGonder('/skyblock');
       console.log('>> [2/3] Skyblock sunucusuna geçiş yapılıyor...');
     }, 10000);
 
-    // 3. Minyon Konumuna Çek
     safeTimeout(() => {
       komutGonder('/home');
       console.log('>> [3/3] Minyon alanına (/home) çekildi.');
     }, 16000);
 
-    // 4. OTOMATİK 30 DAKİKADA BİR MİNYON BESLEME DÖNGÜSÜ
     safeTimeout(() => {
-      minyonBesle(); // İlk besleme
+      minyonBesle();
     }, 20000);
 
     if (afkInterval) clearInterval(afkInterval);
@@ -311,7 +305,6 @@ function botuBaslat() {
       }
     }, 30 * 60 * 1000);
 
-    // 5. Periyodik Konum Tazeleme (Her 15 Dakikada Bir)
     if (kontrolInterval) clearInterval(kontrolInterval);
     kontrolInterval = setInterval(() => {
       if (bot && bot.entity) {
