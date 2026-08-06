@@ -1,4 +1,4 @@
--const mineflayer = require('mineflayer');
+const mineflayer = require('mineflayer');
 const express = require('express');
 
 // --- 1. RENDER PORT VE WEB SUNUCUSU ---
