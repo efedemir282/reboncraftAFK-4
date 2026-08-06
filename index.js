@@ -1,4 +1,4 @@
-const mineflayer = require('mineflayer');
+-const mineflayer = require('mineflayer');
 const express = require('express');
 
 // --- 1. RENDER PORT VE WEB SUNUCUSU ---
@@ -61,7 +61,7 @@ function botuBaslat() {
       port: 25565,
       username: BOT_USERNAME,
       version: '1.21.6',
-      viewDistance: 'far', // FastDecoder paket hatasını önlemek için far ayarlandı
+      viewDistance: 'far',
       clientSettings: {
         locale: 'tr_TR',
         viewDistance: 'far',
@@ -114,59 +114,56 @@ function botuBaslat() {
     komutGonder(`/msg ${gonderen} Tüm eşyalar başarıyla yere atıldı!`);
   }
 
-  // OTOMATİK MİNYON BESLEME (ALTIN ELMA: 27. SLOT)
+  // OTOMATİK MİNYON BESLEME (KESİN HİTBOX VE ÇİFT TIKLAMA MANTIĞI)
   async function minyonBesle() {
     if (!bot || !bot.entity) return;
 
-    console.log('>> [MİNYON BESLEME] Minyon besleme işlemi başlatıldı...');
+    console.log('>> [MİNYON BESLEME] Besleme işlemi başlatılıyor...');
 
     try {
-      bot.once('windowOpen', (window) => {
-        console.log(`>> [MİNYON MENÜSÜ] Menü açıldı: ${window.title || 'CEHENNEM MİNYON PANELİ'}`);
+      // 1. Menü Dinleyicisini Hazırla
+      const menuListener = (window) => {
+        console.log(`>> [MENÜ AÇILDI] Başlık: ${window.title || 'Minyon Paneli'}`);
         
         safeTimeout(() => {
           try {
-            const TARGET_SLOT = 27; // Altın Elma
+            const TARGET_SLOT = 27; // Altın Elma Slotu
             bot.clickWindow(TARGET_SLOT, 0, 0);
-            console.log(`>> [BESLEME BAŞARILI] 27. slottaki Altın Elma'ya tıklandı!`);
+            console.log(`>> [BESLEME BAŞARILI] 27. slottaki Altın Elma'ya basıldı!`);
           } catch (e) {
             console.log('Menü içi tıklama hatası:', e.message);
           }
-        }, 1200);
-      });
+        }, 1000);
+      };
 
+      bot.once('windowOpen', menuListener);
+
+      // 2. Yakındaki Minyonu / Varlığı Bul
       const minyon = bot.nearestEntity(e => {
         if (!e) return false;
-        const name = (e.customName || e.name || '').toLowerCase();
-        return (
-          name.includes('cehennem') ||
-          e.name === 'armor_stand' ||
-          e.name === 'villager' ||
-          e.name === 'player' ||
-          e.type === 'object' ||
-          e.type === 'mob'
-        );
+        const dist = bot.entity.position.distanceTo(e.position);
+        return dist <= 4.0 && e.id !== bot.entity.id;
       });
 
-      if (minyon && bot.entity.position.distanceTo(minyon.position) <= 4.5) {
-        await bot.lookAt(minyon.position.offset(0, 1.2, 0), true);
+      if (minyon) {
+        // Minyona Bak ve Sağ Tıkla
+        await bot.lookAt(minyon.position.offset(0, 1.0, 0), true);
         await new Promise(r => setTimeout(r, 300));
-
+        
         bot.activateEntity(minyon);
         bot.swingArm('right');
-        console.log(`>> [MİNYON] Minyona bakıldı ve sağ tıklandı.`);
+        console.log(`>> [MİNYON] Yakındaki entity'ye (ID: ${minyon.id}) sağ tıklandı.`);
       } else {
+        // Entity Bulunamadıysa Doğrudan Tam Karşıya / Baktığı Bloğa Sağ Tıkla
+        console.log('>> [MİNYON] Belirgin entity bulunamadı, öndeki bloğa sağ tık atılıyor...');
         const targetBlock = bot.blockAtCursor(4);
         if (targetBlock) {
           await bot.lookAt(targetBlock.position, true);
           bot.activateBlock(targetBlock);
-          bot.swingArm('right');
-          console.log('>> [MİNYON] Önündeki bloğa odaklanıp sağ tıklandı...');
-        } else {
-          bot.swingArm('right');
-          console.log('>> [MİNYON] Sağ tık simüle edildi...');
         }
+        bot.swingArm('right');
       }
+
     } catch (err) {
       console.log('Minyon besleme hatası:', err.message);
     }
@@ -294,9 +291,10 @@ function botuBaslat() {
       console.log('>> [3/3] Minyon alanına (/home) çekildi.');
     }, 16000);
 
+    // 22. saniyede ilk besleme denemesi
     safeTimeout(() => {
       minyonBesle();
-    }, 20000);
+    }, 22000);
 
     if (afkInterval) clearInterval(afkInterval);
     afkInterval = setInterval(() => {
