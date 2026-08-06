@@ -114,55 +114,74 @@ function botuBaslat() {
     komutGonder(`/msg ${gonderen} Tüm eşyalar başarıyla yere atıldı!`);
   }
 
-  // OTOMATİK MİNYON BESLEME (KESİN HİTBOX VE ÇİFT TIKLAMA MANTIĞI)
+  // DOĞRU SLOTLA MİNYON BESLEME (ALTIN ELMA: 36. SLOT)
   async function minyonBesle() {
     if (!bot || !bot.entity) return;
 
-    console.log('>> [MİNYON BESLEME] Besleme işlemi başlatılıyor...');
+    console.log('>> [MİNYON BESLEME] Minyon besleme sekansı başlatılıyor...');
 
     try {
-      // 1. Menü Dinleyicisini Hazırla
-      const menuListener = (window) => {
-        console.log(`>> [MENÜ AÇILDI] Başlık: ${window.title || 'Minyon Paneli'}`);
+      // 1. Menü Açılma Dinleyicisi
+      const windowHandler = (window) => {
+        console.log(`>> [MENÜ YAKALANDI] Açılan Menü: ${window.title || 'CEHENNEM MİNYON PANELİ'}`);
         
         safeTimeout(() => {
           try {
-            const TARGET_SLOT = 27; // Altın Elma Slotu
+            const TARGET_SLOT = 36; // Altın Elma'nın Doğru Slotu (5. Satır 1. Sütun)
             bot.clickWindow(TARGET_SLOT, 0, 0);
-            console.log(`>> [BESLEME BAŞARILI] 27. slottaki Altın Elma'ya basıldı!`);
-          } catch (e) {
-            console.log('Menü içi tıklama hatası:', e.message);
+            console.log(`>> [BESLEME BAŞARILI] 36. slottaki Altın Elma'ya tıklandı!`);
+          } catch (err) {
+            console.log('Slot tıklama hatası:', err.message);
           }
-        }, 1000);
+        }, 800);
       };
 
-      bot.once('windowOpen', menuListener);
+      bot.once('windowOpen', windowHandler);
 
-      // 2. Yakındaki Minyonu / Varlığı Bul
-      const minyon = bot.nearestEntity(e => {
-        if (!e) return false;
-        const dist = bot.entity.position.distanceTo(e.position);
-        return dist <= 4.0 && e.id !== bot.entity.id;
+      // 2. Çevredeki Varlıkları (Armor Stand / Mob) Tara
+      const entities = Object.values(bot.entities).filter(e => {
+        if (!e || e.id === bot.entity.id) return false;
+        return bot.entity.position.distanceTo(e.position) <= 4.5;
       });
 
-      if (minyon) {
-        // Minyona Bak ve Sağ Tıkla
-        await bot.lookAt(minyon.position.offset(0, 1.0, 0), true);
-        await new Promise(r => setTimeout(r, 300));
-        
-        bot.activateEntity(minyon);
-        bot.swingArm('right');
-        console.log(`>> [MİNYON] Yakındaki entity'ye (ID: ${minyon.id}) sağ tıklandı.`);
-      } else {
-        // Entity Bulunamadıysa Doğrudan Tam Karşıya / Baktığı Bloğa Sağ Tıkla
-        console.log('>> [MİNYON] Belirgin entity bulunamadı, öndeki bloğa sağ tık atılıyor...');
-        const targetBlock = bot.blockAtCursor(4);
-        if (targetBlock) {
-          await bot.lookAt(targetBlock.position, true);
-          bot.activateBlock(targetBlock);
+      // 3. Etraftaki Varlıklara Odaklan ve Tıkla
+      if (entities.length > 0) {
+        for (const targetEntity of entities) {
+          try {
+            await bot.lookAt(targetEntity.position.offset(0, 1.0, 0), true);
+            await new Promise(r => setTimeout(r, 150));
+            bot.activateEntity(targetEntity);
+            bot.swingArm('right');
+          } catch (e) {}
         }
-        bot.swingArm('right');
       }
+
+      // 4. Bakış Açısı Taraması
+      const basePitch = bot.entity.pitch;
+      const baseYaw = bot.entity.yaw;
+
+      const offsets = [
+        { yaw: 0, pitch: 0 },
+        { yaw: 0.2, pitch: 0.1 },
+        { yaw: -0.2, pitch: -0.1 },
+        { yaw: 0, pitch: 0.3 }
+      ];
+
+      for (const offset of offsets) {
+        try {
+          await bot.look(baseYaw + offset.yaw, basePitch + offset.pitch, true);
+          await new Promise(r => setTimeout(r, 150));
+
+          const targetBlock = bot.blockAtCursor(4);
+          if (targetBlock) {
+            bot.activateBlock(targetBlock);
+          }
+          bot.swingArm('right');
+          if (bot.activateItem) bot.activateItem();
+        } catch (e) {}
+      }
+
+      console.log('>> [MİNYON] Tıklama taraması bitti.');
 
     } catch (err) {
       console.log('Minyon besleme hatası:', err.message);
@@ -291,7 +310,6 @@ function botuBaslat() {
       console.log('>> [3/3] Minyon alanına (/home) çekildi.');
     }, 16000);
 
-    // 22. saniyede ilk besleme denemesi
     safeTimeout(() => {
       minyonBesle();
     }, 22000);
